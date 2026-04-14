@@ -1,0 +1,12 @@
+{
+  "Welcome": {
+    "subject": "Welcome {name}",
+    "body_mode": "Plain Text",
+    "body": "Hi {name},\n\nWelcome to our service.\nYour registered email is {email}.\n\nRegards,\nTeam"
+  },
+  "Follow Up": {
+    "subject": "Follow up for {name}",
+    "body_mode": "Plain Text",
+    "body": "Hi {name},\n\nThis is a follow-up message for {company}.\nPlease reply to this email if you need help.\n\nRegards,\nTeam"
+  }
+}
