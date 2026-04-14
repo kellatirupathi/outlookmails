@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import subprocess
+import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
@@ -12,9 +14,17 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 
-APP_DIR = Path(__file__).resolve().parent
-SCRIPT_PATH = APP_DIR / "outlook_mailer.ps1"
-TEMPLATES_PATH = APP_DIR / "templates.json"
+def get_resource_dir() -> Path:
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS)
+    return Path(__file__).resolve().parent
+
+
+RESOURCE_DIR = get_resource_dir()
+USER_DATA_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "OutlookDesktopMailer"
+SCRIPT_PATH = RESOURCE_DIR / "outlook_mailer.ps1"
+TEMPLATE_SEED_PATH = RESOURCE_DIR / "templates.json"
+TEMPLATES_PATH = USER_DATA_DIR / "templates.json"
 
 DEFAULT_TEMPLATES = {
     "Welcome": {
@@ -197,9 +207,9 @@ class OutlookDesktopMailerApp:
         self.log_text.grid(row=0, column=0, sticky="nsew")
 
     def _load_templates(self) -> dict[str, dict[str, str]]:
+        USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
         if not TEMPLATES_PATH.exists():
-            TEMPLATES_PATH.write_text(json.dumps(DEFAULT_TEMPLATES, indent=2), encoding="utf-8")
-            return DEFAULT_TEMPLATES.copy()
+            self._reset_templates_file()
 
         try:
             data = json.loads(TEMPLATES_PATH.read_text(encoding="utf-8"))
@@ -207,11 +217,19 @@ class OutlookDesktopMailerApp:
                 raise ValueError("templates.json must contain an object")
             return data
         except Exception:
-            TEMPLATES_PATH.write_text(json.dumps(DEFAULT_TEMPLATES, indent=2), encoding="utf-8")
+            self._reset_templates_file()
             return DEFAULT_TEMPLATES.copy()
 
     def _save_templates_file(self) -> None:
+        USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
         TEMPLATES_PATH.write_text(json.dumps(self.templates, indent=2), encoding="utf-8")
+
+    def _reset_templates_file(self) -> None:
+        USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
+        if TEMPLATE_SEED_PATH.exists():
+            TEMPLATES_PATH.write_text(TEMPLATE_SEED_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+        else:
+            TEMPLATES_PATH.write_text(json.dumps(DEFAULT_TEMPLATES, indent=2), encoding="utf-8")
 
     def _populate_template_choices(self) -> None:
         names = sorted(self.templates)
@@ -446,6 +464,8 @@ class OutlookDesktopMailerApp:
             "-NoProfile",
             "-ExecutionPolicy",
             "Bypass",
+            "-WindowStyle",
+            "Hidden",
             "-File",
             str(SCRIPT_PATH),
             "-Action",
@@ -456,7 +476,7 @@ class OutlookDesktopMailerApp:
 
         completed = subprocess.run(
             command,
-            cwd=APP_DIR,
+            cwd=RESOURCE_DIR,
             capture_output=True,
             text=True,
             encoding="utf-8",
